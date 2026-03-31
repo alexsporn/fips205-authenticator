@@ -1,0 +1,9 @@
+[package]
+name = "fips205_authenticator"
+edition = "2024"
+
+[dependencies]
+fips205 = { git = "https://github.com/alexsporn/fips205-move.git", rev = "main" }
+
+[addresses]
+fips205_authenticator = "0x0"

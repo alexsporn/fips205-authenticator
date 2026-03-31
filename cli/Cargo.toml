@@ -1,0 +1,10 @@
+[package]
+name = "fips205-cli"
+version = "0.1.0"
+edition = "2021"
+description = "CLI tool for FIPS 205 SLH-DSA key generation and transaction signing"
+
+[dependencies]
+fips205 = { version = "0.4.1", features = ["slh_dsa_sha2_128s", "slh_dsa_sha2_128f", "default-rng"] }
+clap = { version = "4", features = ["derive"] }
+hex = "0.4"
