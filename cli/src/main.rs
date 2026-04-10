@@ -132,19 +132,24 @@ fn parse_hex_32(hex_str: &str, label: &str) -> [u8; 32] {
     })
 }
 
+/// Split point for 128f signatures: R(16) + sig_fors(3696) = 3712 bytes.
+/// This is the natural FORS/HT boundary used by the on-chain split signature API.
+const SIG_R_FORS_LEN_128F: usize = 3712;
+
 fn sign(digest_hex: &str, sk_path: &PathBuf, address_hex: &str, param: &str) {
     let digest = parse_hex_32(digest_hex, "digest");
     let context = parse_hex_32(address_hex, "address");
     let sk_bytes = fs::read(sk_path).expect("Failed to read secret key file");
 
-    let sig_hex = match param {
+    match param {
         "128s" => {
             let sk = slh_dsa_sha2_128s::PrivateKey::try_from_bytes(
                 sk_bytes.as_slice().try_into().expect("Invalid secret key length"),
             )
             .expect("Invalid secret key");
             let sig = sk.try_sign(&digest, &context, false).expect("Signing failed");
-            hex::encode(sig)
+            // 128s fits in a single arg — output one line
+            println!("{}", hex::encode(sig));
         }
         "128f" => {
             let sk = slh_dsa_sha2_128f::PrivateKey::try_from_bytes(
@@ -152,15 +157,16 @@ fn sign(digest_hex: &str, sk_path: &PathBuf, address_hex: &str, param: &str) {
             )
             .expect("Invalid secret key");
             let sig = sk.try_sign(&digest, &context, false).expect("Signing failed");
-            hex::encode(sig)
+            // 128f exceeds the 16K arg limit — output two lines split at the FORS/HT boundary
+            let (sig_r_fors, sig_ht) = sig.split_at(SIG_R_FORS_LEN_128F);
+            println!("{}", hex::encode(sig_r_fors));
+            println!("{}", hex::encode(sig_ht));
         }
         _ => {
             eprintln!("Error: unsupported parameter set '{param}'. Use '128s' or '128f'.");
             std::process::exit(1);
         }
     };
-
-    println!("{sig_hex}");
 }
 
 fn verify(digest_hex: &str, sig_hex: &str, pk_path: &PathBuf, address_hex: &str, param: &str) {
