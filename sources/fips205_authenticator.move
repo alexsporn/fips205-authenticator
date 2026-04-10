@@ -30,6 +30,9 @@ const ESlhDsaSha2128sVerificationFailed: vector<u8> =
 #[error(code = 3)]
 const ESlhDsaSha2128fVerificationFailed: vector<u8> =
     b"SLH-DSA-SHA2-128f signature verification failed.";
+#[error(code = 4)]
+const EInvalidPublicKeyLength: vector<u8> =
+    b"Public key must be exactly 32 bytes (pk_seed || pk_root).";
 
 // === Structs ===
 
@@ -101,15 +104,19 @@ public entry fun create_slh_dsa_sha2_128f(
 // === Public Key Management ===
 
 /// Attach public key data to the account with the provided `public_key`.
+/// The key must be exactly 32 bytes (pk_seed || pk_root).
 public fun attach_public_key(account_id: &mut UID, public_key: vector<u8>) {
     assert!(!has_public_key(account_id), EPublicKeyAlreadyAttached);
+    assert!(public_key.length() == slh_dsa_sha2_128s::pk_len(), EInvalidPublicKeyLength);
 
     df::add(account_id, PublicKeyFieldName {}, public_key)
 }
 
 /// Update the public key attached to the account.
+/// The new key must be exactly 32 bytes (pk_seed || pk_root).
 public fun rotate_public_key(account_id: &mut UID, public_key: vector<u8>): vector<u8> {
     assert!(has_public_key(account_id), EPublicKeyMissing);
+    assert!(public_key.length() == slh_dsa_sha2_128s::pk_len(), EInvalidPublicKeyLength);
 
     let prev_public_key = df::remove(account_id, PublicKeyFieldName {});
     df::add(account_id, PublicKeyFieldName {}, public_key);
