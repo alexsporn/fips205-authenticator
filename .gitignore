@@ -1,2 +1,6 @@
 build/
 cli/target/
+.env
+keys/
+gas_profile.json*
+/iota-tool
