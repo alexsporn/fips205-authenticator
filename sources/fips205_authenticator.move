@@ -33,6 +33,12 @@ const ESlhDsaSha2128fVerificationFailed: vector<u8> =
 #[error(code = 4)]
 const EInvalidPublicKeyLength: vector<u8> =
     b"Public key must be exactly 32 bytes (pk_seed || pk_root).";
+#[error(code = 5)]
+const EInvalidSigRForsLength: vector<u8> =
+    b"sig_r_fors must be exactly 3,712 bytes (R || sig_fors).";
+#[error(code = 6)]
+const EInvalidSigHtLength: vector<u8> =
+    b"sig_ht must be exactly 13,376 bytes (hypertree signature).";
 
 // === Structs ===
 
@@ -173,18 +179,27 @@ public fun authenticate_slh_dsa_sha2_128s(
 /// Verifies a FIPS 205 SLH-DSA-SHA2-128f signature over the transaction digest,
 /// using the account address as the FIPS 205 context string for domain separation.
 /// This binds signatures to a specific account, preventing cross-account replay.
+///
+/// The 17,088-byte signature is split at the natural FORS/HT boundary to stay
+/// within the 16,384-byte auth-call-arg size limit without needing concatenation:
+/// - `sig_r_fors`: R(16) || sig_fors(3,696) = 3,712 bytes
+/// - `sig_ht`: hypertree signature = 13,376 bytes
 #[authenticator]
 public fun authenticate_slh_dsa_sha2_128f(
     account: &Fips205Account,
-    signature: vector<u8>,
+    sig_r_fors: vector<u8>,
+    sig_ht: vector<u8>,
     _auth_ctx: &AuthContext,
     ctx: &TxContext,
 ) {
     assert!(has_public_key(&account.id), EPublicKeyMissing);
+    assert!(sig_r_fors.length() == slh_dsa_sha2_128f::sig_r_fors_len(), EInvalidSigRForsLength);
+    assert!(sig_ht.length() == slh_dsa_sha2_128f::sig_ht_len(), EInvalidSigHtLength);
     assert!(
-        slh_dsa_sha2_128f::verify_with_context(
+        slh_dsa_sha2_128f::verify_with_context_split(
             ctx.digest(),
-            &signature,
+            &sig_r_fors,
+            &sig_ht,
             borrow_public_key(&account.id),
             &account.id.to_address().to_bytes(),
         ),
